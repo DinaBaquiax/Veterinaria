@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestor de Consultas Veterinarias</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🐾 Gestor de Consultas Veterinarias</h1>
+    <nav id="tabs"></nav>
+  </header>
+
+  <main>
+    <div id="mensaje" class="mensaje oculto"></div>
+
+    <section class="panel">
+      <div class="barra">
+        <h2 id="titulo"></h2>
+        <input id="buscar" type="search" placeholder="Buscar...">
+        <button id="btn-nuevo" class="btn primario">+ Nuevo</button>
+      </div>
+      <div id="estado" class="estado"></div>
+      <div class="tabla-wrap">
+        <table id="tabla">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <dialog id="dialogo">
+      <form id="formulario">
+        <h3 id="form-titulo"></h3>
+        <div id="campos"></div>
+        <p id="form-error" class="error"></p>
+        <div class="acciones-form">
+          <button type="button" id="btn-cancelar" class="btn">Cancelar</button>
+          <button type="submit" class="btn primario">Guardar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="detalle">
+      <div id="detalle-contenido"></div>
+      <div class="acciones-form">
+        <button type="button" id="btn-cerrar" class="btn">Cerrar</button>
+      </div>
+    </dialog>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
