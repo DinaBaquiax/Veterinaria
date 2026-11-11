@@ -7,48 +7,95 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>🐾 Gestor de Consultas Veterinarias</h1>
-    <nav id="tabs"></nav>
-  </header>
 
-  <main>
-    <div id="mensaje" class="mensaje oculto"></div>
+  <!-- ===== Inicio de sesión ===== -->
+  <section id="vista-login" class="login oculto">
+    <form id="form-login" class="login-caja">
+      <div class="logo">🐾</div>
+      <h1>Gestor Veterinario</h1>
+      <p>Inicia sesión para continuar</p>
+      <label>Usuario
+        <input id="login-usuario" type="text" required autocomplete="username">
+      </label>
+      <label>Contraseña
+        <input id="login-clave" type="password" required autocomplete="current-password">
+      </label>
+      <p id="login-error" class="error"></p>
+      <button type="submit" class="btn primario ancho">Entrar</button>
+    </form>
+  </section>
 
-    <section class="panel">
-      <div class="barra">
-        <h2 id="titulo"></h2>
-        <input id="buscar" type="search" placeholder="Buscar...">
-        <button id="btn-nuevo" class="btn primario">+ Nuevo</button>
-      </div>
-      <div id="estado" class="estado"></div>
-      <div class="tabla-wrap">
-        <table id="tabla">
-          <thead></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
+  <!-- ===== Aplicación ===== -->
+  <div id="vista-app" class="app oculto">
+    <aside id="lateral" class="lateral">
+      <div class="marca"><span>🐾</span> VetGestor</div>
+      <nav id="menu"></nav>
+    </aside>
 
-    <dialog id="dialogo">
-      <form id="formulario">
-        <h3 id="form-titulo"></h3>
-        <div id="campos"></div>
-        <p id="form-error" class="error"></p>
-        <div class="acciones-form">
-          <button type="button" id="btn-cancelar" class="btn">Cancelar</button>
-          <button type="submit" class="btn primario">Guardar</button>
+    <div class="contenido">
+      <header class="barra-superior">
+        <button id="btn-menu" class="btn-menu" aria-label="Abrir menú">☰</button>
+        <h1 id="titulo-pagina"></h1>
+        <div class="usuario">
+          <span id="nombre-usuario"></span>
+          <button id="btn-salir" class="btn">Cerrar sesión</button>
         </div>
-      </form>
-    </dialog>
+      </header>
 
-    <dialog id="detalle">
-      <div id="detalle-contenido"></div>
+      <main>
+        <div id="mensaje" class="mensaje oculto"></div>
+
+        <!-- Pantalla de inicio -->
+        <section id="pantalla-inicio" class="inicio">
+          <div id="tarjetas" class="tarjetas"></div>
+
+          <aside class="panel agenda">
+            <h2>Agenda</h2>
+            <div id="agenda-tabs" class="agenda-tabs">
+              <button data-pestana="hoy">Hoy</button>
+              <button data-pestana="proximas">Próximas</button>
+            </div>
+            <div id="agenda-lista"></div>
+          </aside>
+        </section>
+
+        <!-- Pantalla de lista (clientes, mascotas, citas, consultas) -->
+        <section id="pantalla-lista" class="panel oculto">
+          <div class="barra">
+            <input id="buscar" type="search" placeholder="Buscar...">
+            <button id="btn-nuevo" class="btn primario">+ Nuevo</button>
+          </div>
+          <div id="estado" class="estado"></div>
+          <div class="tabla-wrap">
+            <table id="tabla">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- ===== Ventanas emergentes ===== -->
+  <dialog id="dialogo">
+    <form id="formulario">
+      <h3 id="form-titulo"></h3>
+      <div id="campos"></div>
+      <p id="form-error" class="error"></p>
       <div class="acciones-form">
-        <button type="button" id="btn-cerrar" class="btn">Cerrar</button>
+        <button type="button" id="btn-cancelar" class="btn">Cancelar</button>
+        <button type="submit" class="btn primario">Guardar</button>
       </div>
-    </dialog>
-  </main>
+    </form>
+  </dialog>
+
+  <dialog id="detalle">
+    <div id="detalle-contenido"></div>
+    <div class="acciones-form">
+      <button type="button" id="btn-cerrar" class="btn">Cerrar</button>
+    </div>
+  </dialog>
 
   <script src="config.js"></script>
   <script src="app.js"></script>
