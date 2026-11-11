@@ -548,11 +548,17 @@ async function verDetalle(item) {
   const cont = $('detalle-contenido');
   cont.replaceChildren(el('h3', `Detalle de ${cfg.singular}`));
 
-  const lista = document.createElement('dl');
+  const lista = el('div', '', 'detalle-grid');
   cfg.campos.forEach((c) => {
     let valor = item[`${c.name}_nombre`] ?? item[c.name];
     if (c.type === 'datetime-local') valor = fmtFecha(valor);
-    lista.append(el('dt', c.label), el('dd', valor === '' || valor == null ? '—' : valor));
+
+    const caja = el('div', '', c.type === 'textarea' ? 'dato ancho-completo' : 'dato');
+    caja.append(
+      el('span', c.label, 'dato-etiqueta'),
+      el('strong', valor === '' || valor == null ? '—' : valor, 'dato-valor')
+    );
+    lista.append(caja);
   });
   cont.append(lista);
   $('detalle').showModal();

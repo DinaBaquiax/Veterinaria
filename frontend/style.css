@@ -229,3 +229,43 @@ dd { margin: 0; }
   .btn-menu { display: block; }
   #nombre-usuario { display: none; }
 }
+
+/* ---------- Detalle en cuadros ---------- */
+#detalle { width: min(640px, 94vw); }
+
+.detalle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: .75rem;
+  margin-top: .75rem;
+}
+
+.dato {
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: .65rem .8rem;
+  min-width: 0;
+}
+.dato.ancho-completo { grid-column: 1 / -1; }
+
+.dato-etiqueta {
+  display: block;
+  margin-bottom: .2rem;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--suave);
+}
+
+.dato-valor {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+#detalle h4 { margin: 1.25rem 0 .25rem; }
+
+@media (max-width: 520px) {
+  .detalle-grid { grid-template-columns: 1fr; }
+}
