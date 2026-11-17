@@ -269,3 +269,94 @@ dd { margin: 0; }
 @media (max-width: 520px) {
   .detalle-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- Menú: título ---------- */
+.marca { font-size: 1.1rem; line-height: 1.25; }
+
+/* ---------- Formularios emergentes (estilo "Haz una cita") ---------- */
+#dialogo {
+  width: min(480px, 94vw);
+  max-height: 92vh;
+  padding: 1.5rem 1.5rem 1.25rem;
+  border-radius: 20px;
+  background: linear-gradient(160deg, #0369a1, #0ea5e9);
+  color: #fff;
+  overflow-y: auto;
+}
+#dialogo::backdrop { background: rgba(3, 37, 65, .6); backdrop-filter: blur(2px); }
+
+#form-titulo {
+  margin: 0 0 .5rem;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-size: 1.35rem;
+}
+
+#dialogo label { color: #fff; font-weight: 600; font-size: .9rem; margin-top: .9rem; }
+#dialogo .req { color: #fca5a5; }
+
+#dialogo input,
+#dialogo select,
+#dialogo textarea {
+  background: #e0f2fe;
+  color: #0f172a;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  padding: .65rem 1rem;
+}
+#dialogo textarea { border-radius: 18px; }
+#dialogo input:focus,
+#dialogo select:focus,
+#dialogo textarea:focus {
+  outline: none;
+  border-color: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .35);
+}
+
+#dialogo .error {
+  color: #fecaca;
+  font-weight: 600;
+  text-align: center;
+  min-height: 1.2rem;
+  margin: .75rem 0 0;
+}
+
+#dialogo .acciones-form { justify-content: center; gap: .75rem; margin-top: 1.1rem; }
+#dialogo .btn {
+  background: transparent;
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, .85);
+  border-radius: 999px;
+  padding: .6rem 1.4rem;
+}
+#dialogo .btn.primario { background: #fff; color: #0369a1; border-color: #fff; font-weight: 700; }
+
+/* ---------- Menú: servicios ---------- */
+.lateral { overflow-y: auto; }
+
+.servicios {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  padding: 0 .25rem 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, .2);
+}
+
+.servicio {
+  width: 100%;
+  padding: .6rem .75rem;
+  border: none;
+  border-radius: 999px;
+  background: #0e7490;
+  color: #fff;
+  font: inherit;
+  font-size: .78rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  transition: background .15s, transform .15s;
+}
+.servicio:hover { background: #0891b2; transform: translateY(-1px); }
