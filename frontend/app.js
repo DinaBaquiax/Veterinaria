@@ -95,6 +95,17 @@ $('form-login').addEventListener('submit', async (ev) => {
   }
 });
 
+// ============ Servicios (opciones del "Motivo de consulta") ============
+const SERVICIOS = [
+  'Consultas',
+  'Vacunas',
+  'Desparasitantes',
+  'Profilaxis dental',
+  'Esterilizaciones',
+  'Otro',
+];
+const OPCIONES_SERVICIO = SERVICIOS.map((s) => [s, s]);
+
 // ============ Configuración de cada sección ============
 const RECURSOS = {
   clientes: {
@@ -119,6 +130,7 @@ const RECURSOS = {
   mascotas: {
     titulo: 'Mascotas',
     singular: 'mascota',
+    femenino: true,
     aviso: 'También se eliminarán sus citas y consultas.',
     historial: true,
     columnas: [
@@ -132,7 +144,7 @@ const RECURSOS = {
         name: 'cliente', label: 'Cliente', type: 'select', required: true,
         origen: 'clientes', etiqueta: (c) => `${c.nombre} ${c.apellido}`,
       },
-      { name: 'nombre', label: 'Nombre', type: 'text', required: true },
+      { name: 'nombre', label: 'Nombre de la mascota', type: 'text', required: true },
       {
         name: 'especie', label: 'Especie', type: 'select', required: true,
         opciones: [['perro', 'Perro'], ['gato', 'Gato'], ['ave', 'Ave'], ['otro', 'Otro']],
@@ -149,6 +161,8 @@ const RECURSOS = {
   citas: {
     titulo: 'Citas',
     singular: 'cita',
+    femenino: true,
+    tituloNuevo: 'Haz una cita',
     columnas: [
       ['mascota_nombre', 'Mascota'],
       ['fecha_hora', 'Fecha y hora', fmtFecha],
@@ -160,8 +174,11 @@ const RECURSOS = {
         name: 'mascota', label: 'Mascota', type: 'select', required: true,
         origen: 'mascotas', etiqueta: (m) => `${m.nombre} (${m.cliente_nombre})`,
       },
-      { name: 'fecha_hora', label: 'Fecha y hora', type: 'datetime-local', required: true },
-      { name: 'motivo', label: 'Motivo', type: 'text', required: true },
+      {
+        name: 'motivo', label: 'Motivo de consulta', type: 'select', required: true,
+        opciones: OPCIONES_SERVICIO,
+      },
+      { name: 'fecha_hora', label: 'Fecha de la cita', type: 'datetime-local', required: true },
       {
         name: 'estado', label: 'Estado', type: 'select', required: true,
         opciones: [['programada', 'Programada'], ['completada', 'Completada'], ['cancelada', 'Cancelada']],
@@ -172,6 +189,7 @@ const RECURSOS = {
   consultas: {
     titulo: 'Consultas',
     singular: 'consulta',
+    femenino: true,
     columnas: [
       ['mascota_nombre', 'Mascota'],
       ['fecha', 'Fecha', fmtFecha],
@@ -187,20 +205,32 @@ const RECURSOS = {
         name: 'cita', label: 'Cita (opcional)', type: 'select', opcional: true,
         origen: 'citas', etiqueta: (c) => `${c.mascota_nombre} · ${fmtFecha(c.fecha_hora)}`,
       },
-      { name: 'motivo', label: 'Motivo', type: 'text', required: true },
+      {
+        name: 'motivo', label: 'Motivo de consulta', type: 'select', required: true,
+        opciones: OPCIONES_SERVICIO,
+      },
       { name: 'diagnostico', label: 'Diagnóstico', type: 'textarea', required: true },
       { name: 'tratamiento', label: 'Tratamiento', type: 'textarea', required: true },
-      { name: 'observaciones', label: 'Observaciones', type: 'textarea' },
+      { name: 'observaciones', label: 'Comentario adicional', type: 'textarea' },
     ],
   },
 };
 
+// Opciones principales del menú
 const MENU = [
   ['inicio', '🏠', 'Inicio'],
   ['clientes', '👥', 'Clientes'],
   ['mascotas', '🐶', 'Mascotas'],
   ['citas', '📅', 'Citas'],
   ['consultas', '🩺', 'Consultas'],
+];
+
+// Servicios, debajo de Consultas: cada uno abre una lista con las citas de ese servicio
+const MENU_SERVICIOS = [
+  ['Vacunas', '💉'],
+  ['Desparasitantes', '💊'],
+  ['Profilaxis dental', '🦷'],
+  ['Esterilizaciones', '✂️'],
 ];
 
 const TARJETAS = [
@@ -213,6 +243,7 @@ const TARJETAS = [
 
 // ============ Estado de la aplicación ============
 let recurso = 'clientes';
+let servicioActivo = null; // si tiene valor, la lista de citas se filtra por ese servicio
 let filas = [];
 let editandoId = null;
 let agendaDatos = [];
@@ -268,16 +299,20 @@ function mostrarEstado(texto, esError = false) {
 }
 
 // ============ Navegación ============
-function cambiarVista(nombre) {
+// "servicio" es opcional: muestra las citas de ese servicio (Vacunas, Desparasitantes...)
+function cambiarVista(nombre, servicio = null) {
   $('lateral').classList.remove('abierto');
+  servicioActivo = servicio;
+
+  const clave = servicio ? `servicio:${servicio}` : nombre;
   document.querySelectorAll('#menu button').forEach((b) =>
-    b.classList.toggle('activo', b.dataset.vista === nombre)
+    b.classList.toggle('activo', b.dataset.vista === clave)
   );
 
   const esInicio = nombre === 'inicio';
   $('pantalla-inicio').classList.toggle('oculto', !esInicio);
   $('pantalla-lista').classList.toggle('oculto', esInicio);
-  $('titulo-pagina').textContent = esInicio ? 'Inicio' : RECURSOS[nombre].titulo;
+  $('titulo-pagina').textContent = esInicio ? 'Inicio' : servicio || RECURSOS[nombre].titulo;
 
   if (esInicio) {
     cargarInicio();
@@ -376,6 +411,7 @@ async function cargar() {
   mostrarEstado('Cargando datos… la primera vez puede tardar hasta un minuto mientras despierta el servidor.');
   try {
     filas = await api(`${recurso}/`);
+    if (servicioActivo) filas = filas.filter((f) => f.motivo === servicioActivo);
     dibujarTabla();
   } catch (e) {
     filas = [];
@@ -401,7 +437,10 @@ function dibujarTabla() {
   encabezado.append(el('th', 'Acciones'));
   thead.append(encabezado);
 
-  mostrarEstado(visibles.length ? '' : 'No hay registros para mostrar.');
+  const sinDatos = servicioActivo
+    ? `No hay citas de ${servicioActivo} para mostrar.`
+    : 'No hay registros para mostrar.';
+  mostrarEstado(visibles.length ? '' : sinDatos);
 
   visibles.forEach((fila) => {
     const tr = document.createElement('tr');
@@ -426,11 +465,13 @@ function dibujarTabla() {
   });
 }
 
-// ============ Formulario (crear / editar) ============
+// ============ Formulario emergente (crear / editar) ============
 async function abrirFormulario(item = null, inicial = {}) {
   const cfg = RECURSOS[recurso];
   editandoId = item ? item.id : null;
-  $('form-titulo').textContent = `${item ? 'Editar' : 'Nuevo'} ${cfg.singular}`;
+  $('form-titulo').textContent = item
+    ? `Editar ${cfg.singular}`
+    : cfg.tituloNuevo || `${cfg.femenino ? 'Nueva' : 'Nuevo'} ${cfg.singular}`;
   $('form-error').textContent = '';
 
   try {
@@ -446,14 +487,25 @@ async function abrirFormulario(item = null, inicial = {}) {
   contenedor.replaceChildren();
 
   for (const c of cfg.campos) {
-    const etiqueta = el('label', c.label + (c.required ? ' *' : ''));
+    const etiqueta = el('label', c.label);
+    if (c.required) etiqueta.append(el('span', ' *', 'req'));
     let input;
+
+    // Valor inicial: el del registro que se edita o el que viene de "Atender" / de un servicio
+    let valorInicial = null;
+    if (item && item[c.name] != null) valorInicial = item[c.name];
+    else if (!item && inicial[c.name] != null) valorInicial = inicial[c.name];
 
     if (c.type === 'select') {
       input = document.createElement('select');
       input.append(new Option(c.opcional ? '— Ninguna —' : '— Selecciona —', ''));
       const opciones = c.opciones || cache[c.origen].map((o) => [o.id, c.etiqueta(o)]);
       opciones.forEach(([valor, texto]) => input.append(new Option(texto, valor)));
+      // Si el valor guardado no está en la lista (por ejemplo, un motivo escrito antes a mano), se agrega
+      if (c.opciones && valorInicial != null &&
+          !opciones.some(([v]) => String(v) === String(valorInicial))) {
+        input.append(new Option(valorInicial, valorInicial));
+      }
     } else if (c.type === 'textarea') {
       input = document.createElement('textarea');
     } else {
@@ -464,10 +516,8 @@ async function abrirFormulario(item = null, inicial = {}) {
     input.id = `f-${c.name}`;
     if (c.required) input.required = true;
 
-    if (item && item[c.name] != null) {
-      input.value = c.type === 'datetime-local' ? aInputLocal(item[c.name]) : item[c.name];
-    } else if (!item && inicial[c.name] != null) {
-      input.value = String(inicial[c.name]);
+    if (valorInicial != null) {
+      input.value = c.type === 'datetime-local' ? aInputLocal(valorInicial) : String(valorInicial);
     }
 
     etiqueta.append(input);
@@ -591,11 +641,21 @@ async function verDetalle(item) {
 // ============ Arranque ============
 function iniciar() {
   const menu = $('menu');
+
   MENU.forEach(([clave, icono, texto]) => {
     const boton = document.createElement('button');
     boton.dataset.vista = clave;
     boton.append(el('span', icono), el('span', texto));
     boton.addEventListener('click', () => cambiarVista(clave));
+    menu.append(boton);
+  });
+
+  // Servicios, debajo de Consultas: cada uno abre su lista de citas
+  MENU_SERVICIOS.forEach(([servicio, icono]) => {
+    const boton = document.createElement('button');
+    boton.dataset.vista = `servicio:${servicio}`;
+    boton.append(el('span', icono), el('span', servicio));
+    boton.addEventListener('click', () => cambiarVista('citas', servicio));
     menu.append(boton);
   });
 
@@ -608,7 +668,9 @@ function iniciar() {
 
   $('btn-menu').addEventListener('click', () => $('lateral').classList.toggle('abierto'));
   $('btn-salir').addEventListener('click', cerrarSesion);
-  $('btn-nuevo').addEventListener('click', () => abrirFormulario());
+  $('btn-nuevo').addEventListener('click', () =>
+    abrirFormulario(null, servicioActivo ? { motivo: servicioActivo } : {})
+  );
   $('btn-cancelar').addEventListener('click', () => $('dialogo').close());
   $('btn-cerrar').addEventListener('click', () => $('detalle').close());
   $('buscar').addEventListener('input', dibujarTabla);
