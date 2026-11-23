@@ -250,6 +250,11 @@ let agendaDatos = [];
 let pestanaAgenda = 'hoy';
 const cache = {}; // datos para llenar los <select>
 
+// Paginación y buscador de las listas
+let pagina = 1;
+let porPagina = 10;
+let esperaBusqueda;
+
 // ============ Comunicación con la API ============
 async function api(ruta, opciones = {}) {
   const token = guardado.leer(CLAVE_TOKEN);
@@ -310,14 +315,23 @@ function cambiarVista(nombre, servicio = null) {
   );
 
   const esInicio = nombre === 'inicio';
+  const esReportes = nombre === 'reportes';
   $('pantalla-inicio').classList.toggle('oculto', !esInicio);
-  $('pantalla-lista').classList.toggle('oculto', esInicio);
-  $('titulo-pagina').textContent = esInicio ? 'Inicio' : servicio || RECURSOS[nombre].titulo;
+  $('pantalla-lista').classList.toggle('oculto', esInicio || esReportes);
+  $('pantalla-reportes').classList.toggle('oculto', !esReportes);
+  $('titulo-pagina').textContent = esInicio
+    ? 'Inicio'
+    : esReportes
+      ? 'Reportes'
+      : servicio || RECURSOS[nombre].titulo;
 
   if (esInicio) {
     cargarInicio();
+  } else if (esReportes) {
+    prepararReportes();
   } else {
     recurso = nombre;
+    pagina = 1;
     $('buscar').value = '';
     cargar();
   }
@@ -406,6 +420,63 @@ async function atender(cita) {
   });
 }
 
+// ============ Paginación (se usa en las listas y en los reportes) ============
+// Devuelve los números de página que se muestran, con "…" cuando hay muchas
+function numerosDePagina(actual, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const base = [1, total, actual - 1, actual, actual + 1].filter((n) => n >= 1 && n <= total);
+  const lista = [...new Set(base)].sort((a, b) => a - b);
+
+  const salida = [];
+  lista.forEach((n, i) => {
+    if (i > 0 && n - lista[i - 1] > 1) salida.push('…');
+    salida.push(n);
+  });
+  return salida;
+}
+
+// Dibuja los botones de paginación dentro de "caja".
+// cambiar({ pagina, porPagina }) se ejecuta cuando la persona cambia de página o de cantidad.
+function dibujarPaginacion(caja, { total, pagina, porPagina, cambiar }) {
+  caja.replaceChildren();
+  if (!total) return;
+
+  const paginas = Math.ceil(total / porPagina);
+  const desde = (pagina - 1) * porPagina + 1;
+  const hasta = Math.min(pagina * porPagina, total);
+
+  caja.append(el('span', `Mostrando ${desde}–${hasta} de ${total}`, 'pag-info'));
+
+  const controles = el('div', '', 'pag-controles');
+
+  const boton = (texto, destino, activo = false, deshabilitado = false) => {
+    const b = el('button', texto, activo ? 'pag-btn activo' : 'pag-btn');
+    b.type = 'button';
+    b.disabled = deshabilitado;
+    b.addEventListener('click', () => cambiar({ pagina: destino, porPagina }));
+    return b;
+  };
+
+  controles.append(boton('‹ Anterior', pagina - 1, false, pagina === 1));
+  numerosDePagina(pagina, paginas).forEach((n) => {
+    if (n === '…') controles.append(el('span', '…', 'pag-puntos'));
+    else controles.append(boton(String(n), n, n === pagina));
+  });
+  controles.append(boton('Siguiente ›', pagina + 1, false, pagina === paginas));
+
+  const selector = document.createElement('select');
+  selector.className = 'pag-tamano';
+  [5, 10, 25, 50].forEach((n) => selector.append(new Option(`${n} por página`, n)));
+  selector.value = String(porPagina);
+  selector.addEventListener('change', () =>
+    cambiar({ pagina: 1, porPagina: Number(selector.value) })
+  );
+  controles.append(selector);
+
+  caja.append(controles);
+}
+
 // ============ Lista y tabla ============
 async function cargar() {
   mostrarEstado('Cargando datos… la primera vez puede tardar hasta un minuto mientras despierta el servidor.');
@@ -427,6 +498,11 @@ function dibujarTabla() {
     (f) => !q || Object.values(f).join(' ').toLowerCase().includes(q)
   );
 
+  // Paginación: se muestran solo los registros de la página actual
+  const paginas = Math.max(1, Math.ceil(visibles.length / porPagina));
+  if (pagina > paginas) pagina = paginas;
+  const enPagina = visibles.slice((pagina - 1) * porPagina, pagina * porPagina);
+
   const thead = document.querySelector('#tabla thead');
   const tbody = document.querySelector('#tabla tbody');
   thead.replaceChildren();
@@ -437,12 +513,16 @@ function dibujarTabla() {
   encabezado.append(el('th', 'Acciones'));
   thead.append(encabezado);
 
+  // Mensaje de estado (buscador reactivo: indica cuántos resultados hay)
   const sinDatos = servicioActivo
     ? `No hay citas de ${servicioActivo} para mostrar.`
     : 'No hay registros para mostrar.';
-  mostrarEstado(visibles.length ? '' : sinDatos);
+  let mensaje = '';
+  if (!visibles.length) mensaje = sinDatos;
+  else if (q) mensaje = `${visibles.length} resultado${visibles.length === 1 ? '' : 's'} para «${q}»`;
+  mostrarEstado(mensaje);
 
-  visibles.forEach((fila) => {
+  enPagina.forEach((fila) => {
     const tr = document.createElement('tr');
     cfg.columnas.forEach(([clave, , formato, clase]) => {
       const valor = formato ? formato(fila[clave]) : fila[clave];
@@ -462,6 +542,17 @@ function dibujarTabla() {
     });
     tr.append(acciones);
     tbody.append(tr);
+  });
+
+  dibujarPaginacion($('paginacion'), {
+    total: visibles.length,
+    pagina,
+    porPagina,
+    cambiar: (nuevo) => {
+      pagina = nuevo.pagina;
+      porPagina = nuevo.porPagina;
+      dibujarTabla();
+    },
   });
 }
 
@@ -638,6 +729,266 @@ async function verDetalle(item) {
   }
 }
 
+// ============ Reportes ============
+// Qué reportes existen: de dónde salen los datos, por qué campo de fecha se filtran y qué columnas llevan
+const REPORTES = {
+  clientes: {
+    titulo: 'Clientes',
+    ruta: 'clientes/',
+    campoFecha: 'creado',
+    columnas: [
+      ['nombre', 'Nombre'],
+      ['apellido', 'Apellido'],
+      ['telefono', 'Teléfono'],
+      ['email', 'Correo'],
+      ['direccion', 'Dirección'],
+      ['creado', 'Registrado', fmtFecha],
+    ],
+  },
+  mascotas: {
+    titulo: 'Mascotas',
+    ruta: 'mascotas/',
+    campoFecha: 'creado',
+    resumenPor: 'especie',
+    columnas: [
+      ['nombre', 'Nombre'],
+      ['especie', 'Especie'],
+      ['raza', 'Raza'],
+      ['sexo', 'Sexo'],
+      ['cliente_nombre', 'Cliente'],
+      ['fecha_nacimiento', 'Nacimiento'],
+    ],
+  },
+  citas: {
+    titulo: 'Citas',
+    ruta: 'citas/',
+    campoFecha: 'fecha_hora',
+    filtroServicio: true,
+    filtroEstado: true,
+    resumenPor: 'motivo',
+    columnas: [
+      ['mascota_nombre', 'Mascota'],
+      ['fecha_hora', 'Fecha y hora', fmtFecha],
+      ['motivo', 'Servicio'],
+      ['estado', 'Estado'],
+    ],
+  },
+  consultas: {
+    titulo: 'Consultas',
+    ruta: 'consultas/',
+    campoFecha: 'fecha',
+    filtroServicio: true,
+    resumenPor: 'motivo',
+    columnas: [
+      ['mascota_nombre', 'Mascota'],
+      ['fecha', 'Fecha', fmtFecha],
+      ['motivo', 'Servicio'],
+      ['diagnostico', 'Diagnóstico', null, 'largo'],
+      ['tratamiento', 'Tratamiento', null, 'largo'],
+      ['observaciones', 'Comentario', null, 'largo'],
+    ],
+  },
+};
+
+let reporte = null; // { tipo, cfg, filas } del último reporte generado
+let reportePagina = 1;
+let reportePorPagina = 10;
+let reportesListos = false;
+let esperaReporte;
+
+// Llena los <select> la primera vez que se abre la pantalla de reportes
+function prepararReportes() {
+  if (!reportesListos) {
+    Object.entries(REPORTES).forEach(([clave, r]) =>
+      $('rep-tipo').append(new Option(r.titulo, clave))
+    );
+
+    $('rep-servicio').append(new Option('Todos', ''));
+    SERVICIOS.forEach((s) => $('rep-servicio').append(new Option(s, s)));
+
+    $('rep-estado').append(new Option('Todos', ''));
+    [['programada', 'Programada'], ['completada', 'Completada'], ['cancelada', 'Cancelada']]
+      .forEach(([valor, texto]) => $('rep-estado').append(new Option(texto, valor)));
+
+    reportesListos = true;
+  }
+  actualizarFiltrosReporte();
+  dibujarReporte();
+}
+
+// Muestra u oculta los filtros que aplican al tipo de reporte elegido
+function actualizarFiltrosReporte() {
+  const cfg = REPORTES[$('rep-tipo').value];
+  $('rep-wrap-servicio').classList.toggle('oculto', !cfg.filtroServicio);
+  $('rep-wrap-estado').classList.toggle('oculto', !cfg.filtroEstado);
+}
+
+// FUNCIÓN: genera el reporte. Pide los datos a la API, aplica los filtros y guarda las filas.
+async function generarReporte() {
+  const tipo = $('rep-tipo').value;
+  const cfg = REPORTES[tipo];
+  const desde = $('rep-desde').value;
+  const hasta = $('rep-hasta').value;
+
+  if (desde && hasta && desde > hasta) {
+    mostrarMensaje('La fecha «Desde» no puede ser posterior a «Hasta».', 'error');
+    return;
+  }
+
+  const boton = $('btn-generar');
+  boton.disabled = true;
+  boton.textContent = 'Generando…';
+
+  try {
+    let datos = await api(cfg.ruta);
+
+    if (desde) {
+      const inicio = new Date(`${desde}T00:00:00`);
+      datos = datos.filter((f) => new Date(f[cfg.campoFecha]) >= inicio);
+    }
+    if (hasta) {
+      const fin = new Date(`${hasta}T23:59:59.999`);
+      datos = datos.filter((f) => new Date(f[cfg.campoFecha]) <= fin);
+    }
+
+    const servicio = $('rep-servicio').value;
+    if (cfg.filtroServicio && servicio) datos = datos.filter((f) => f.motivo === servicio);
+
+    const estado = $('rep-estado').value;
+    if (cfg.filtroEstado && estado) datos = datos.filter((f) => f.estado === estado);
+
+    reporte = { tipo, cfg, filas: datos };
+    reportePagina = 1;
+    $('rep-buscar').value = '';
+    dibujarReporte();
+    mostrarMensaje(`Reporte de ${cfg.titulo.toLowerCase()} generado: ${datos.length} registro(s).`);
+  } catch (e) {
+    mostrarMensaje(textoError(e), 'error');
+  } finally {
+    boton.disabled = false;
+    boton.textContent = 'Generar reporte';
+  }
+}
+
+// Filas del reporte que coinciden con el buscador reactivo
+function filasDelReporte() {
+  if (!reporte) return [];
+  const q = $('rep-buscar').value.trim().toLowerCase();
+  return reporte.filas.filter(
+    (f) => !q || Object.values(f).join(' ').toLowerCase().includes(q)
+  );
+}
+
+// Cuenta cuántas filas hay por cada valor de un campo (por ejemplo, citas por servicio)
+function contarPor(lista, campo) {
+  const cuenta = {};
+  lista.forEach((f) => {
+    const clave = f[campo] || '—';
+    cuenta[clave] = (cuenta[clave] || 0) + 1;
+  });
+  return Object.entries(cuenta).sort((a, b) => b[1] - a[1]);
+}
+
+// Dibuja la vista previa del reporte: resumen, tabla y paginación
+function dibujarReporte() {
+  const thead = document.querySelector('#rep-tabla thead');
+  const tbody = document.querySelector('#rep-tabla tbody');
+  thead.replaceChildren();
+  tbody.replaceChildren();
+  $('rep-resumen').replaceChildren();
+  $('rep-paginacion').replaceChildren();
+
+  if (!reporte) {
+    $('rep-mensaje').textContent =
+      'Elige el tipo de reporte, ajusta los filtros y presiona «Generar reporte».';
+    $('btn-csv').disabled = true;
+    return;
+  }
+
+  const cfg = reporte.cfg;
+  const visibles = filasDelReporte();
+  $('btn-csv').disabled = !visibles.length;
+  $('rep-mensaje').textContent = visibles.length ? '' : 'No hay registros con esos filtros.';
+
+  // Resumen: total y desglose
+  $('rep-resumen').append(el('span', `Total: ${visibles.length}`, 'chip chip-total'));
+  if (cfg.resumenPor) {
+    contarPor(visibles, cfg.resumenPor).forEach(([nombre, cantidad]) =>
+      $('rep-resumen').append(el('span', `${nombre}: ${cantidad}`, 'chip'))
+    );
+  }
+
+  // Tabla paginada
+  const encabezado = document.createElement('tr');
+  cfg.columnas.forEach(([, nombre]) => encabezado.append(el('th', nombre)));
+  thead.append(encabezado);
+
+  const paginas = Math.max(1, Math.ceil(visibles.length / reportePorPagina));
+  if (reportePagina > paginas) reportePagina = paginas;
+  const enPagina = visibles.slice(
+    (reportePagina - 1) * reportePorPagina,
+    reportePagina * reportePorPagina
+  );
+
+  enPagina.forEach((fila) => {
+    const tr = document.createElement('tr');
+    cfg.columnas.forEach(([clave, , formato, clase]) => {
+      const valor = formato ? formato(fila[clave]) : fila[clave];
+      tr.append(el('td', valor === '' || valor == null ? '—' : valor, clase || ''));
+    });
+    tbody.append(tr);
+  });
+
+  dibujarPaginacion($('rep-paginacion'), {
+    total: visibles.length,
+    pagina: reportePagina,
+    porPagina: reportePorPagina,
+    cambiar: (nuevo) => {
+      reportePagina = nuevo.pagina;
+      reportePorPagina = nuevo.porPagina;
+      dibujarReporte();
+    },
+  });
+}
+
+// CSV: usa la librería externa PapaParse (Papa.unparse) para convertir las filas a texto CSV
+function descargarCSV() {
+  if (typeof Papa === 'undefined') {
+    mostrarMensaje('No se pudo cargar la librería PapaParse. Revisa tu conexión a internet.', 'error');
+    return;
+  }
+
+  const visibles = filasDelReporte();
+  if (!reporte || !visibles.length) return;
+
+  const columnas = reporte.cfg.columnas;
+  const csv = Papa.unparse(
+    {
+      fields: columnas.map(([, nombre]) => nombre),
+      data: visibles.map((fila) =>
+        columnas.map(([clave, , formato]) => {
+          const valor = formato ? formato(fila[clave]) : fila[clave];
+          return valor ?? '';
+        })
+      ),
+    },
+    { escapeFormulae: true } // evita que Excel ejecute celdas que empiecen con = + - @
+  );
+
+  // "\ufeff" hace que Excel muestre bien los acentos
+  const archivo = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(archivo);
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = `reporte-${reporte.tipo}-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.append(enlace);
+  enlace.click();
+  enlace.remove();
+  URL.revokeObjectURL(url);
+
+  mostrarMensaje('CSV descargado correctamente.');
+}
+
 // ============ Arranque ============
 function iniciar() {
   const menu = $('menu');
@@ -659,6 +1010,13 @@ function iniciar() {
     menu.append(boton);
   });
 
+  // Reportes, al final del menú
+  const botonReportes = document.createElement('button');
+  botonReportes.dataset.vista = 'reportes';
+  botonReportes.append(el('span', '📊'), el('span', 'Reportes'));
+  botonReportes.addEventListener('click', () => cambiarVista('reportes'));
+  menu.append(botonReportes);
+
   document.querySelectorAll('#agenda-tabs button').forEach((b) =>
     b.addEventListener('click', () => {
       pestanaAgenda = b.dataset.pestana;
@@ -673,7 +1031,31 @@ function iniciar() {
   );
   $('btn-cancelar').addEventListener('click', () => $('dialogo').close());
   $('btn-cerrar').addEventListener('click', () => $('detalle').close());
-  $('buscar').addEventListener('input', dibujarTabla);
+
+  // Buscador reactivo de las listas: filtra mientras se escribe y vuelve a la página 1
+  $('buscar').addEventListener('input', () => {
+    clearTimeout(esperaBusqueda);
+    esperaBusqueda = setTimeout(() => {
+      pagina = 1;
+      dibujarTabla();
+    }, 250);
+  });
+
+  // Reportes
+  $('rep-tipo').addEventListener('change', () => {
+    reporte = null;
+    actualizarFiltrosReporte();
+    dibujarReporte();
+  });
+  $('btn-generar').addEventListener('click', generarReporte);
+  $('btn-csv').addEventListener('click', descargarCSV);
+  $('rep-buscar').addEventListener('input', () => {
+    clearTimeout(esperaReporte);
+    esperaReporte = setTimeout(() => {
+      reportePagina = 1;
+      dibujarReporte();
+    }, 250);
+  });
 
   if (guardado.leer(CLAVE_TOKEN)) mostrarApp();
   else mostrarLogin();

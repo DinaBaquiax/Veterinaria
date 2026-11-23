@@ -30,8 +30,6 @@
     <aside id="lateral" class="lateral">
       <div class="marca"><span>🐾</span> Nuestros servicios</div>
       <nav id="menu"></nav>
-      <div id="servicios" class="servicios"></div>
-      <nav id="menu"></nav>
     </aside>
 
     <div class="contenido">
@@ -61,7 +59,7 @@
           </aside>
         </section>
 
-        <!-- Pantalla de lista (clientes, mascotas, citas, consultas) -->
+        <!-- Pantalla de lista (clientes, mascotas, citas, consultas y servicios) -->
         <section id="pantalla-lista" class="panel oculto">
           <div class="barra">
             <input id="buscar" type="search" placeholder="Buscar...">
@@ -74,6 +72,44 @@
               <tbody></tbody>
             </table>
           </div>
+          <div id="paginacion" class="paginacion"></div>
+        </section>
+
+        <!-- Pantalla de reportes -->
+        <section id="pantalla-reportes" class="panel oculto">
+          <div class="rep-filtros">
+            <label>Tipo de reporte
+              <select id="rep-tipo"></select>
+            </label>
+            <label>Desde
+              <input id="rep-desde" type="date">
+            </label>
+            <label>Hasta
+              <input id="rep-hasta" type="date">
+            </label>
+            <label id="rep-wrap-servicio">Servicio
+              <select id="rep-servicio"></select>
+            </label>
+            <label id="rep-wrap-estado">Estado
+              <select id="rep-estado"></select>
+            </label>
+          </div>
+
+          <div class="rep-acciones">
+            <button id="btn-generar" class="btn primario">Generar reporte</button>
+            <button id="btn-csv" class="btn" disabled>Descargar CSV</button>
+            <input id="rep-buscar" type="search" placeholder="Buscar en el reporte...">
+          </div>
+
+          <div id="rep-resumen" class="rep-resumen"></div>
+          <div id="rep-mensaje" class="estado"></div>
+          <div class="tabla-wrap">
+            <table id="rep-tabla">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div id="rep-paginacion" class="paginacion"></div>
         </section>
       </main>
     </div>
@@ -99,6 +135,8 @@
     </div>
   </dialog>
 
+  <!-- Librería externa: PapaParse (se usa para generar el CSV de los reportes) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
