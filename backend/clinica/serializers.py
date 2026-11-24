@@ -4,9 +4,14 @@ from .models import Cliente, Mascota, Cita, Consulta
 
 
 class ClienteSerializer(serializers.ModelSerializer):
+    codigo = serializers.SerializerMethodField()
+
     class Meta:
         model = Cliente
         fields = '__all__'
+
+    def get_codigo(self, obj):
+        return f'CLI-{obj.pk:04d}'
 
     def validate_telefono(self, value):
         digitos = [c for c in value if c.isdigit()]
@@ -18,11 +23,15 @@ class ClienteSerializer(serializers.ModelSerializer):
 
 
 class MascotaSerializer(serializers.ModelSerializer):
+    codigo = serializers.SerializerMethodField()
     cliente_nombre = serializers.SerializerMethodField()
 
     class Meta:
         model = Mascota
         fields = '__all__'
+
+    def get_codigo(self, obj):
+        return f'MAS-{obj.pk:04d}'
 
     def get_cliente_nombre(self, obj):
         return str(obj.cliente)
