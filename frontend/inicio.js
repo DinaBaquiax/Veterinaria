@@ -13,11 +13,11 @@ const BANNERS_INICIO = [
 ];
 
 const SERVICIOS_INICIO = [
-  { nombre: 'Consultas', icono: '🩺', texto: 'Revisión general y diagnóstico para conocer la salud de tu mascota.' },
-  { nombre: 'Vacunas', icono: '💉', texto: 'Esquema de vacunación al día para protegerla de enfermedades.' },
-  { nombre: 'Desparasitantes', icono: '💊', texto: 'Control de parásitos internos y externos para su bienestar.' },
-  { nombre: 'Profilaxis dental', icono: '🦷', texto: 'Limpieza dental profesional para una boca sana.' },
-  { nombre: 'Esterilizaciones', icono: '✂️', texto: 'Cirugía segura para el control reproductivo y su salud.' },
+  { nombre: 'Consultas', icono: '🩺', texto: 'Atención personalizada para evaluar a tu mascota y brindarle los cuidados que necesita.' },
+  { nombre: 'Vacunas', icono: '💉', texto: 'Protección preventiva mediante vacunas que ayudan a mantener a tu mascota saludable.' },
+  { nombre: 'Desparasitantes', icono: '💊', texto: 'Tratamientos especializados para eliminar parásitos y cuidar su salud.' },
+  { nombre: 'Profilaxis dental', icono: '🦷', texto: 'Cuidado e higiene bucal para prevenir problemas dentales y mantener sus dientes limpios.' },
+  { nombre: 'Esterilizaciones', icono: '✂️', texto: 'Procedimiento veterinario para evitar la reproducción y favorecer una vida saludable.' },
 ];
 
 // Carrusel sencillo: una fila que se desplaza con las flechas
