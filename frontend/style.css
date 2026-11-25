@@ -410,3 +410,120 @@ dd { margin: 0; }
   font-size: .85rem;
 }
 .chip-total { background: var(--primario); border-color: var(--primario); color: #fff; font-weight: 600; }
+
+/* ---------- Ajustes para escritorio, laptop y tablet ---------- */
+main { max-width: 1500px; margin: 0 auto; }
+.lateral { height: 100vh; height: 100dvh; }
+
+/* Las tarjetas se acomodan solas según el ancho disponible */
+.tarjetas { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+
+/* Laptop y pantallas medianas: la agenda pasa debajo de las tarjetas */
+@media (max-width: 1400px) {
+  .inicio { grid-template-columns: 1fr; }
+}
+
+/* Tablet (iPad): el menú lateral se oculta y se abre con el botón ☰ */
+@media (max-width: 900px) {
+  .lateral { position: fixed; left: -250px; top: 0; z-index: 30; transition: left .2s; }
+  .lateral.abierto { left: 0; }
+  .btn-menu { display: block; }
+  #nombre-usuario { display: none; }
+  td.col-acciones { white-space: normal; min-width: 150px; }
+}
+
+/* Celular: tarjetas en dos columnas */
+@media (max-width: 520px) {
+  .tarjetas { grid-template-columns: repeat(2, 1fr); }
+  .barra-superior h1 { font-size: 1.1rem; }
+  main { padding: .75rem; }
+}
+
+/* Pantallas táctiles (iPad, celular): botones más grandes */
+@media (pointer: coarse) {
+  .btn.chico, .pag-btn { padding: .5rem .8rem; }
+  #menu button { padding: .8rem .75rem; }
+}
+
+
+/* ---------- Inicio: banners y servicios ---------- */
+.inicio-servicios { min-width: 0; display: flex; flex-direction: column; gap: 1.5rem; }
+
+.carrusel { position: relative; min-width: 0; }
+.carrusel-pista {
+  display: flex;
+  gap: 1rem;
+  padding: 8px 0 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.carrusel-pista::-webkit-scrollbar { display: none; }
+.carrusel-pista > * { flex-shrink: 0; scroll-snap-align: start; }
+
+.carrusel-flecha {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 2.5rem;
+  height: 2.5rem;
+  transform: translateY(-50%);
+  border: none;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, .65);
+  color: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.carrusel-flecha:hover { background: rgba(15, 23, 42, .85); }
+.carrusel-flecha.izq { left: .5rem; }
+.carrusel-flecha.der { right: .5rem; }
+
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  min-height: 210px;
+  padding: 1.5rem 2rem;
+  border-radius: 16px;
+  color: #fff;
+  overflow: hidden;
+}
+.banner-texto { margin: 0; max-width: 22ch; font-size: 1.6rem; font-weight: 700; line-height: 1.3; }
+.banner-imagen { font-size: 5.5rem; line-height: 1; }
+.banner-cielo { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
+.banner-azul { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+
+.servicios-titulo { margin: 0; text-align: center; font-size: 1.7rem; text-transform: uppercase; }
+.servicios-sub { margin: .35rem 0 0; text-align: center; color: var(--suave); }
+
+.servicio-tarjeta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .5rem;
+  width: 230px;
+  padding: 1.5rem 1rem;
+  background: #fff;
+  color: var(--texto);
+  border: 1px solid #334155;
+  border-radius: 16px;
+  text-align: center;
+  cursor: pointer;
+  font: inherit;
+  transition: transform .15s, box-shadow .15s;
+}
+.servicio-tarjeta:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0, 0, 0, .12); }
+.servicio-tarjeta .icono { font-size: 2.8rem; line-height: 1; }
+.servicio-tarjeta .titulo { font-size: 1.1rem; font-weight: 700; }
+.servicio-tarjeta .texto { font-size: .85rem; line-height: 1.4; color: var(--suave); }
+
+@media (max-width: 520px) {
+  .banner { min-height: 170px; padding: 1rem 1.25rem; }
+  .banner-texto { font-size: 1.2rem; }
+  .banner-imagen { font-size: 3.5rem; }
+  .servicio-tarjeta { width: 75vw; }
+}
