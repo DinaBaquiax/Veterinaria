@@ -21,6 +21,13 @@ function aInputLocal(iso) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+// Cuadro con etiqueta y valor (se usa en el detalle y en los reportes)
+function cajaDato(etiqueta, valor, clase = 'dato') {
+  const caja = el('div', '', clase);
+  caja.append(el('span', etiqueta, 'dato-etiqueta'), el('strong', valor, 'dato-valor'));
+  return caja;
+}
+
 // ============ Sesión (el token se borra al cerrar la pestaña) ============
 const CLAVE_TOKEN = 'vet_token';
 const CLAVE_USUARIO = 'vet_usuario';
@@ -111,8 +118,10 @@ const RECURSOS = {
   clientes: {
     titulo: 'Clientes',
     singular: 'cliente',
+    reporte: true, // muestra el botón "Reporte" en cada fila
     aviso: 'También se eliminarán sus mascotas, citas y consultas.',
     columnas: [
+      ['codigo', 'Código'],
       ['nombre', 'Nombre'],
       ['apellido', 'Apellido'],
       ['telefono', 'Teléfono'],
@@ -131,9 +140,11 @@ const RECURSOS = {
     titulo: 'Mascotas',
     singular: 'mascota',
     femenino: true,
+    reporte: true,
     aviso: 'También se eliminarán sus citas y consultas.',
     historial: true,
     columnas: [
+      ['codigo', 'Código'],
       ['nombre', 'Nombre'],
       ['especie', 'Especie'],
       ['raza', 'Raza'],
@@ -240,6 +251,8 @@ const TARJETAS = [
   { clave: 'citas_pendientes', titulo: 'Citas pendientes', icono: '⏰', color: 'c-rojo', destino: 'citas' },
   { clave: 'consultas_mes', titulo: 'Consultas del mes', icono: '🩺', color: 'c-verde', destino: 'consultas' },
 ];
+
+const ESTADOS_CITA = { programada: 'Programada', completada: 'Completada', cancelada: 'Cancelada' };
 
 // ============ Estado de la aplicación ============
 let recurso = 'clientes';
@@ -532,6 +545,7 @@ function dibujarTabla() {
     const acciones = el('td', '', 'col-acciones');
     const botones = [
       ['Ver', 'btn chico', () => verDetalle(fila)],
+      ...(cfg.reporte ? [['Reporte', 'btn chico', () => verReporte(fila)]] : []),
       ['Editar', 'btn chico', () => abrirFormulario(fila)],
       ['Eliminar', 'btn chico peligro', () => eliminar(fila)],
     ];
@@ -690,16 +704,19 @@ async function verDetalle(item) {
   cont.replaceChildren(el('h3', `Detalle de ${cfg.singular}`));
 
   const lista = el('div', '', 'detalle-grid');
+  if (item.codigo) lista.append(cajaDato('Código', item.codigo));
+
   cfg.campos.forEach((c) => {
     let valor = item[`${c.name}_nombre`] ?? item[c.name];
     if (c.type === 'datetime-local') valor = fmtFecha(valor);
 
-    const caja = el('div', '', c.type === 'textarea' ? 'dato ancho-completo' : 'dato');
-    caja.append(
-      el('span', c.label, 'dato-etiqueta'),
-      el('strong', valor === '' || valor == null ? '—' : valor, 'dato-valor')
+    lista.append(
+      cajaDato(
+        c.label,
+        valor === '' || valor == null ? '—' : valor,
+        c.type === 'textarea' ? 'dato ancho-completo' : 'dato'
+      )
     );
-    lista.append(caja);
   });
   cont.append(lista);
   $('detalle').showModal();
@@ -729,7 +746,258 @@ async function verDetalle(item) {
   }
 }
 
-// ============ Reportes ============
+// ============ Reporte de un cliente o una mascota ============
+// Arma la ficha de una mascota: última visita, próxima cita e historial (consultas y citas)
+function armarFicha(mascota, citas, consultas) {
+  const ahora = new Date();
+  const susCitas = citas.filter((c) => c.mascota === mascota.id);
+  const susConsultas = consultas.filter((c) => c.mascota === mascota.id);
+
+  // Última visita: la consulta o la cita completada más reciente
+  const visitas = [
+    ...susConsultas.map((c) => new Date(c.fecha)),
+    ...susCitas.filter((c) => c.estado === 'completada').map((c) => new Date(c.fecha_hora)),
+  ];
+  const ultima = visitas.length ? new Date(Math.max(...visitas)) : null;
+
+  // Próxima cita: la programada más cercana que todavía no pasó
+  const proxima =
+    susCitas
+      .filter((c) => c.estado === 'programada' && new Date(c.fecha_hora) >= ahora)
+      .sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora))[0] || null;
+
+  // Historial: consultas y citas, de la más reciente a la más antigua.
+  // Si una cita ya tiene su consulta, solo se muestra la consulta.
+  const citasConConsulta = new Set(susConsultas.map((c) => c.cita).filter(Boolean));
+  const historial = [
+    ...susConsultas.map((c) => ({ tipo: 'Consulta', fecha: c.fecha, motivo: c.motivo, consulta: c })),
+    ...susCitas
+      .filter((c) => !citasConConsulta.has(c.id))
+      .map((c) => ({ tipo: 'Cita', fecha: c.fecha_hora, motivo: c.motivo, estado: c.estado })),
+  ].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+  return { mascota, ultima, proxima, historial };
+}
+
+// Muestra el reporte (ventana) del cliente o de la mascota de la fila
+async function verReporte(item) {
+  const esCliente = recurso === 'clientes';
+  const nombre = esCliente ? `${item.nombre} ${item.apellido}` : item.nombre;
+  const cont = $('detalle-contenido');
+
+  cont.replaceChildren(el('h3', `Reporte de ${nombre}`), el('p', 'Cargando reporte…', 'estado'));
+  $('detalle').showModal();
+
+  let fichas;
+  try {
+    const [mascotas, citas, consultas] = await Promise.all([
+      api('mascotas/'),
+      api('citas/'),
+      api('consultas/'),
+    ]);
+    const suyas = esCliente ? mascotas.filter((m) => m.cliente === item.id) : [item];
+    fichas = suyas.map((m) => armarFicha(m, citas, consultas));
+  } catch (e) {
+    if (e && e.estado === 401) {
+      $('detalle').close();
+      return;
+    }
+    cont.replaceChildren(
+      el('h3', `Reporte de ${nombre}`),
+      el('p', 'No se pudo cargar el reporte.', 'estado error')
+    );
+    return;
+  }
+
+  const titulo = el('h3', `Reporte de ${nombre}`);
+  if (item.codigo) titulo.append(el('span', item.codigo, 'codigo'));
+
+  const pdf = el('button', 'Descargar PDF', 'btn primario');
+  pdf.addEventListener('click', () =>
+    descargarPDF({ nombre, codigo: item.codigo, fichas })
+  );
+  const barra = el('div', '', 'ficha-acciones');
+  barra.append(pdf);
+
+  cont.replaceChildren(titulo, barra);
+
+  if (esCliente) {
+    cont.append(el('p', `Mascotas registradas: ${fichas.length}`, 'suave'));
+    if (!fichas.length) {
+      cont.append(el('p', 'Este cliente aún no tiene mascotas registradas.', 'estado'));
+    }
+  }
+
+  fichas.forEach((f) => {
+    const m = f.mascota;
+    const seccion = el('section', '', 'ficha');
+
+    const enc = el('h4', m.nombre);
+    if (m.codigo) enc.append(el('span', m.codigo, 'codigo'));
+    seccion.append(enc);
+    seccion.append(
+      el('p', [m.especie, m.raza, `Cliente: ${m.cliente_nombre}`].filter(Boolean).join(' · '), 'suave')
+    );
+
+    const cuadros = el('div', '', 'detalle-grid');
+    cuadros.append(
+      cajaDato('Última visita', f.ultima ? fmtFecha(f.ultima) : 'Sin visitas registradas'),
+      cajaDato(
+        'Próxima cita',
+        f.proxima ? `${fmtFecha(f.proxima.fecha_hora)} · ${f.proxima.motivo}` : 'Sin cita programada'
+      )
+    );
+    seccion.append(cuadros);
+
+    // Opción para asignar la próxima cita (abre "Haz una cita" con la mascota ya elegida)
+    const acciones = el('div', '', 'ficha-acciones');
+    const agendar = el(
+      'button',
+      f.proxima ? 'Agendar otra cita' : 'Agendar próxima cita',
+      'btn chico primario'
+    );
+    agendar.addEventListener('click', () => {
+      $('detalle').close();
+      cambiarVista('citas');
+      abrirFormulario(null, { mascota: m.id });
+    });
+    acciones.append(agendar);
+    seccion.append(acciones);
+
+    seccion.append(el('strong', 'Historial'));
+    if (!f.historial.length) {
+      seccion.append(el('p', 'Aún no tiene consultas ni citas registradas.', 'estado'));
+    }
+    f.historial.forEach((h) => {
+      const tarjeta = el('div', '', 'consulta');
+      if (h.tipo === 'Consulta') {
+        tarjeta.append(
+          el('strong', `${fmtFecha(h.fecha)} · Consulta · ${h.motivo}`),
+          el('p', `Diagnóstico: ${h.consulta.diagnostico}`),
+          el('p', `Tratamiento: ${h.consulta.tratamiento}`)
+        );
+      } else {
+        tarjeta.append(
+          el('strong', `${fmtFecha(h.fecha)} · Cita · ${h.motivo}`),
+          el('p', `Estado: ${ESTADOS_CITA[h.estado] || h.estado}`)
+        );
+      }
+      seccion.append(tarjeta);
+    });
+
+    cont.append(seccion);
+  });
+}
+
+// Quita caracteres que el PDF no muestra bien (espacios especiales, rayas largas, puntos suspensivos)
+function limpiarPDF(texto) {
+  return String(texto ?? '')
+    .replace(/[\u202f\u00a0]/g, ' ')
+    .replace(/[–—]/g, '-')
+    .replace(/…/g, '...');
+}
+
+// Descarga el reporte en PDF usando la librería externa jsPDF
+function descargarPDF({ nombre, codigo, fichas }) {
+  if (!window.jspdf) {
+    mostrarMensaje('No se pudo cargar la librería jsPDF. Revisa tu conexión a internet.', 'error');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const margen = 15;
+  const anchoUtil = 210 - margen * 2;
+  const limite = 297 - margen;
+  let y = margen;
+
+  // Escribe un texto (con saltos de línea y de página automáticos)
+  const escribir = (texto, { tam = 10, negrita = false, color = [30, 41, 59], sangria = 0 } = {}) => {
+    doc.setFont('helvetica', negrita ? 'bold' : 'normal');
+    doc.setFontSize(tam);
+    doc.setTextColor(...color);
+    const alto = tam * 0.42;
+    doc.splitTextToSize(limpiarPDF(texto), anchoUtil - sangria).forEach((linea) => {
+      if (y + alto > limite) {
+        doc.addPage();
+        y = margen;
+      }
+      doc.text(linea, margen + sangria, y);
+      y += alto;
+    });
+  };
+
+  escribir(`Reporte de ${nombre}${codigo ? ` (${codigo})` : ''}`, {
+    tam: 16, negrita: true, color: [15, 118, 110],
+  });
+  escribir(`Generado el ${fmtFecha(new Date())}`, { tam: 9, color: [100, 116, 139] });
+  y += 4;
+
+  if (!fichas.length) escribir('Este cliente aún no tiene mascotas registradas.');
+
+  fichas.forEach((f) => {
+    const m = f.mascota;
+
+    // Línea separadora entre mascotas
+    if (y + 12 > limite) {
+      doc.addPage();
+      y = margen;
+    }
+    y += 3;
+    doc.setDrawColor(203, 213, 225);
+    doc.line(margen, y, 210 - margen, y);
+    y += 6;
+
+    escribir(`${m.nombre}${m.codigo ? ` (${m.codigo})` : ''}`, { tam: 13, negrita: true });
+    escribir([m.especie, m.raza, `Cliente: ${m.cliente_nombre}`].filter(Boolean).join(' - '), {
+      tam: 9, color: [100, 116, 139],
+    });
+    y += 2;
+    escribir(`Última visita: ${f.ultima ? fmtFecha(f.ultima) : 'Sin visitas registradas'}`, { negrita: true });
+    escribir(
+      `Próxima cita: ${f.proxima ? `${fmtFecha(f.proxima.fecha_hora)} - ${f.proxima.motivo}` : 'Sin cita programada'}`,
+      { negrita: true }
+    );
+    y += 3;
+    escribir('Historial', { tam: 11, negrita: true });
+
+    if (!f.historial.length) {
+      escribir('Aún no tiene consultas ni citas registradas.', { sangria: 3 });
+    }
+    f.historial.forEach((h) => {
+      y += 1.5;
+      if (h.tipo === 'Consulta') {
+        escribir(`${fmtFecha(h.fecha)} - Consulta: ${h.motivo}`, { negrita: true, sangria: 3 });
+        escribir(`Diagnóstico: ${h.consulta.diagnostico}`, { sangria: 6 });
+        escribir(`Tratamiento: ${h.consulta.tratamiento}`, { sangria: 6 });
+        if (h.consulta.observaciones) {
+          escribir(`Comentario: ${h.consulta.observaciones}`, { sangria: 6 });
+        }
+      } else {
+        escribir(
+          `${fmtFecha(h.fecha)} - Cita (${ESTADOS_CITA[h.estado] || h.estado}): ${h.motivo}`,
+          { negrita: true, sangria: 3 }
+        );
+      }
+    });
+  });
+
+  // Numeración de páginas
+  const total = doc.getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Página ${i} de ${total}`, 210 - margen, 297 - 8, { align: 'right' });
+  }
+
+  const archivo = `reporte-${codigo || nombre}-${new Date().toISOString().slice(0, 10)}.pdf`;
+  doc.save(archivo.replace(/\s+/g, '-'));
+  mostrarMensaje('PDF descargado correctamente.');
+}
+
+// ============ Reportes (pantalla de Reportes con CSV) ============
 // Qué reportes existen: de dónde salen los datos, por qué campo de fecha se filtran y qué columnas llevan
 const REPORTES = {
   clientes: {
@@ -737,6 +1005,7 @@ const REPORTES = {
     ruta: 'clientes/',
     campoFecha: 'creado',
     columnas: [
+      ['codigo', 'Código'],
       ['nombre', 'Nombre'],
       ['apellido', 'Apellido'],
       ['telefono', 'Teléfono'],
@@ -751,6 +1020,7 @@ const REPORTES = {
     campoFecha: 'creado',
     resumenPor: 'especie',
     columnas: [
+      ['codigo', 'Código'],
       ['nombre', 'Nombre'],
       ['especie', 'Especie'],
       ['raza', 'Raza'],
@@ -1041,7 +1311,7 @@ function iniciar() {
     }, 250);
   });
 
-  // Reportes
+  // Pantalla de Reportes
   $('rep-tipo').addEventListener('change', () => {
     reporte = null;
     actualizarFiltrosReporte();

@@ -562,3 +562,24 @@ main { max-width: 1500px; margin: 0 auto; }
 
 /* Borde visible al navegar con el teclado */
 button:focus-visible { outline: 3px solid rgba(15, 118, 110, .45); outline-offset: 2px; }
+
+/* ---------- Códigos y reporte por cliente / mascota ---------- */
+.codigo {
+  display: inline-block;
+  margin-left: .5rem;
+  padding: .15rem .6rem;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: var(--fondo);
+  color: var(--primario-osc);
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  vertical-align: middle;
+}
+
+#detalle { max-height: 90vh; overflow-y: auto; }
+
+.ficha { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px dashed var(--borde); }
+.ficha h4 { margin: 0 0 .25rem; }
+.ficha-acciones { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0; }
